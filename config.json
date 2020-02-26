@@ -1,0 +1,69 @@
+{
+	"Source Field": "Front",
+	"Search Queries": [
+		{
+			"Name": "Word",
+			"URL": "{}",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Definition",
+			"URL": "{} definition",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Giphy",
+			"URL": "{} giphy",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Wikipedia",
+			"URL": "{} wikipedia",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Wikimedia",
+			"URL": "{} wikimedia",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Meme",
+			"URL": "{} meme",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Getty Images",
+			"URL": "{} gettyimages",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		},
+		{
+			"Name": "Shutterstock",
+			"URL": "{} shutterstock",
+			"Field": "",
+			"Count": 1,
+			"Width": -1,
+			"Height": 260
+		}
+	]
+}
