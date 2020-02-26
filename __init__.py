@@ -73,6 +73,7 @@ def updateNotes(browser, nids):
         cnt = sq.get("Count", 1)
         width = sq.get("Width", -1)
         height = sq.get("Height", 260)
+        overwrite = sq.get("Overwrite", False)
 
         if mpv_executable is None:
             width = height = -1
@@ -124,7 +125,18 @@ def updateNotes(browser, nids):
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 6)
 
+        checkBox = QCheckBox()
+        checkBox.setText("Overwrite if not empty")
+        checkBox.setStyleSheet("""
+            QCheckBox:checked { color: black; }
+            QCheckBox:unchecked { color: grey; }
+        """)
+        checkBox.setChecked(overwrite)
+        frm.gridLayout.addWidget(checkBox, i, 7)
+
     frm.gridLayout.setColumnStretch(1, 1)
+    frm.gridLayout.setColumnMinimumWidth(0, 100)
+    frm.gridLayout.setColumnMinimumWidth(1, 120)
     frm.gridLayout.setColumnMinimumWidth(2, 120)
 
     if not d.exec_():
@@ -133,7 +145,7 @@ def updateNotes(browser, nids):
     sf = frm.srcField.currentText()
 
     sq = []
-    columns = ["Name", "URL", "Field", "Count", '', 'Width', 'Height']
+    columns = ["Name", "URL", "Field", "Count", '', 'Width', 'Height', 'Overwrite']
     for i in range(frm.gridLayout.rowCount()):
         q = {}
         for j in range(frm.gridLayout.columnCount()):
@@ -153,6 +165,8 @@ def updateNotes(browser, nids):
                     q[key] = ""
             elif isinstance(item, QSpinBox):
                 q[key] = item.value()
+            elif isinstance(item, QCheckBox):
+                q[key] = item.isChecked()
             else:
                 q[key] = item.text()
         sq.append(q)
@@ -185,7 +199,7 @@ def updateNotes(browser, nids):
                 if not df:
                     continue
 
-                if note[df]:
+                if not q["Overwrite"] and note[df]:
                     continue
 
                 def getImages(nid, fld, html, img_width, img_height, img_count):

@@ -7,7 +7,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Definition",
@@ -15,7 +16,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Giphy",
@@ -23,7 +25,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Wikipedia",
@@ -31,7 +34,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Wikimedia",
@@ -39,7 +43,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Meme",
@@ -47,7 +52,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Getty Images",
@@ -55,7 +61,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		},
 		{
 			"Name": "Shutterstock",
@@ -63,7 +70,8 @@
 			"Field": "",
 			"Count": 1,
 			"Width": -1,
-			"Height": 260
+			"Height": 260,
+			"Overwrite": false
 		}
 	]
 }
