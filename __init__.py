@@ -50,6 +50,16 @@ def updateNotes(browser, nids):
 
     config = mw.addonManager.getConfig(__name__)
 
+    mpv_executable, env = find_executable("mpv"), os.environ
+    if mpv_executable is None:
+        mpv_path, env = _packagedCmd(["mpv"])
+        mpv_executable = mpv_path[0]
+        try:
+            with noBundledLibs():
+                p = subprocess.Popen([mpv_executable, "--version"], startupinfo=si)
+        except OSError:
+            mpv_executable = None
+
     note = mw.col.getNote(nids[0])
     fields = note.keys()
 
@@ -237,18 +247,22 @@ def updateNotes(browser, nids):
                                 if getattr(im, 'n_frames', 1) == 1:
                                     im.thumbnail((width, height))
                                     im.save(buf, format=im.format, optimize=True)
-                                else:
-                                    # https://gist.github.com/skywodd/8b68bd9c7af048afcedcea3fb1807966
-                                    frames = ImageSequence.Iterator(im)
-                                    def thumbnails(frames):
-                                        for frame in frames:
-                                            thumbnail = frame.copy()
-                                            thumbnail.thumbnail((width, height))
-                                            yield thumbnail
-                                    frames = thumbnails(frames)
-                                    om = next(frames)
-                                    om.info = im.info
-                                    om.save(buf, format=im.format, save_all=True, append_images=list(frames), loop=0)
+                                elif mpv_executable:
+                                    thread_id = threading.get_native_id()
+                                    tmp_path = tmpfile(suffix='.{}'.format(thread_id))
+                                    with open(tmp_path, 'wb') as f:
+                                        f.write(data)
+                                    img_fmt = im.format.lower()
+                                    img_ext = '.' + img_fmt
+                                    img_path = tmpfile(suffix=img_ext)
+                                    cmd = [mpv_executable, tmp_path, "-vf", "lavfi=[scale='min({},iw)':'min({},ih)':force_original_aspect_ratio=decrease:flags=lanczos]".format(img_width, img_height), "-o", img_path]
+                                    with noBundledLibs():
+                                        p = subprocess.Popen(cmd, startupinfo=si, stdin=subprocess.PIPE,
+                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                            env=env)
+                                    if p.wait() == 0:
+                                        with open(img_path, 'rb') as f:
+                                            buf.write(f.read())
                                 data = buf.getvalue()
                             fname = mw.col.media.writeData(fname, data)
                             filename = '<img src="%s">' % fname
