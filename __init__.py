@@ -230,6 +230,7 @@ def updateNotes(browser, nids):
                     for url in results:
                         try:
                             r = requests.get(url, headers=headers, timeout=15)
+                            r.raise_for_status()
                             data = r.content
                             if 'text/html' in r.headers.get('content-type', ''):
                                 continue
