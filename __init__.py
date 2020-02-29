@@ -233,6 +233,8 @@ def updateNotes(browser, nids):
                             data = r.content
                             if 'text/html' in r.headers.get('content-type', ''):
                                 continue
+                            if 'image/svg+xml' in r.headers.get('content-type', ''):
+                                continue
                             url = re.sub(r"\?.*?$", "", url)
                             path = urllib.parse.unquote(url)
                             fname = os.path.basename(path)
