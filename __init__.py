@@ -33,7 +33,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
 import concurrent.futures
 
-from PIL import Image
+from PIL import Image, ImageSequence
 
 
 headers = {
@@ -233,9 +233,22 @@ def updateNotes(browser, nids):
                                     width = min(width, img_width)
                                 if img_height > 0:
                                     height = min(height, img_height)
-                                im.thumbnail((width, height))
                                 buf = io.BytesIO()
-                                im.save(buf, format=im.format, optimize=True)
+                                if getattr(im, 'n_frames', 1) == 1:
+                                    im.thumbnail((width, height))
+                                    im.save(buf, format=im.format, optimize=True)
+                                else:
+                                    # https://gist.github.com/skywodd/8b68bd9c7af048afcedcea3fb1807966
+                                    frames = ImageSequence.Iterator(im)
+                                    def thumbnails(frames):
+                                        for frame in frames:
+                                            thumbnail = frame.copy()
+                                            thumbnail.thumbnail((width, height))
+                                            yield thumbnail
+                                    frames = thumbnails(frames)
+                                    om = next(frames)
+                                    om.info = im.info
+                                    om.save(buf, format=im.format, save_all=True, append_images=list(frames), loop=0)
                                 data = buf.getvalue()
                             fname = mw.col.media.writeData(fname, data)
                             filename = '<img src="%s">' % fname
