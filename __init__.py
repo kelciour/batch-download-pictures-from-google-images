@@ -7,6 +7,7 @@ Nickolay Nonard <kelciour@gmail.com>
 import json
 import requests
 import time
+import io
 import os
 import re
 import subprocess
@@ -30,8 +31,9 @@ from .designer import Ui_Dialog
 # https://github.com/glutanimate/html-cleaner/blob/master/html_cleaner/main.py#L59
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
-import imghdr
 import concurrent.futures
+
+from PIL import Image
 
 
 headers = {
@@ -47,16 +49,6 @@ def updateNotes(browser, nids):
     frm.setupUi(d)
 
     config = mw.addonManager.getConfig(__name__)
-
-    mpv_executable, env = find_executable("mpv"), os.environ
-    if mpv_executable is None:
-        mpv_path, env = _packagedCmd(["mpv"])
-        mpv_executable = mpv_path[0]
-        try:
-            with noBundledLibs():
-                p = subprocess.Popen([mpv_executable, "--version"], startupinfo=si)
-        except OSError:
-            mpv_executable = None
 
     note = mw.col.getNote(nids[0])
     fields = note.keys()
@@ -74,9 +66,6 @@ def updateNotes(browser, nids):
         width = sq.get("Width", -1)
         height = sq.get("Height", 260)
         overwrite = sq.get("Overwrite", False)
-
-        if mpv_executable is None:
-            width = height = -1
 
         lineEdit = QLineEdit(name)
         frm.gridLayout.addWidget(lineEdit, i, 0)
@@ -108,8 +97,6 @@ def updateNotes(browser, nids):
         spinBox.setMaximum(9999)
         spinBox.setValue(width)
         spinBox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
-        if mpv_executable is None:
-            spinBox.setEnabled(False)
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 5)
 
@@ -120,8 +107,6 @@ def updateNotes(browser, nids):
         spinBox.setMaximum(9999)
         spinBox.setValue(height)
         spinBox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
-        if mpv_executable is None:
-            spinBox.setEnabled(False)
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 6)
 
@@ -241,22 +226,17 @@ def updateNotes(browser, nids):
                             fname = os.path.basename(path)
                             if not fname:
                                 fname = checksum(data)
-                            if mpv_executable and (img_width > 0 or img_height > 0):
-                                thread_id = threading.get_native_id()
-                                tmp_path = tmpfile(suffix='.{}'.format(thread_id))
-                                with open(tmp_path, 'wb') as f:
-                                    f.write(data)
-                                img_fmt = imghdr.what(None, h=data)
-                                img_ext = '.' + img_fmt if img_fmt else '.jpg'
-                                img_path = tmpfile(suffix=img_ext)
-                                cmd = [mpv_executable, tmp_path, "-vf", "lavfi=[scale='min({},iw)':'min({},ih)':force_original_aspect_ratio=decrease:flags=lanczos]".format(img_width, img_height), "-o", img_path]
-                                with noBundledLibs():
-                                    p = subprocess.Popen(cmd, startupinfo=si, stdin=subprocess.PIPE,
-                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                        env=env)
-                                if p.wait() == 0:
-                                    with open(img_path, 'rb') as f:
-                                        data = f.read()
+                            if img_width > 0 or img_height > 0:
+                                im = Image.open(io.BytesIO(data))
+                                width, height = im.width, im.height
+                                if img_width > 0:
+                                    width = min(width, img_width)
+                                if img_height > 0:
+                                    height = min(height, img_height)
+                                im.thumbnail((width, height))
+                                buf = io.BytesIO()
+                                im.save(buf, format=im.format, optimize=True)
+                                data = buf.getvalue()
                             fname = mw.col.media.writeData(fname, data)
                             filename = '<img src="%s">' % fname
                             images.append(filename)
