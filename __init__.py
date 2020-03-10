@@ -204,21 +204,21 @@ def updateNotes(browser, nids):
                     results = [d["ou"] for d in metadata]
 
                     if not results:
-                        try:
-                            regex = re.escape("AF_initDataCallback({key: 'ds:2'")
-                            regex += r'.*?' + re.escape(r', data:function(){return')
-                            regex += r'([\s\S]+?)' + re.escape(r'}});</script>')
+                        regex = re.escape("AF_initDataCallback({")
+                        regex += r'.*?' + re.escape(r', data:function(){return')
+                        regex += r'([\s\S]+?)' + re.escape(r'}});</script>')
 
-                            m = re.search(regex, html)
-                            data = json.loads(m.group(1))
+                        for txt in re.findall(regex, html):
+                            data = json.loads(txt)
 
-                            for d in data[31][0][12][2]:
-                                try:
-                                    results.append(d[1][3][0])
-                                except Exception as e:
-                                    pass
-                        except Exception as e:
-                            pass
+                            try:
+                                for d in data[31][0][12][2]:
+                                    try:
+                                        results.append(d[1][3][0])
+                                    except Exception as e:
+                                        pass
+                            except Exception as e:
+                                pass
 
                     cnt = 0
                     images = []
