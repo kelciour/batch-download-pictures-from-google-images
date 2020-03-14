@@ -262,6 +262,11 @@ def updateNotes(browser, nids):
                                 break
                         except requests.exceptions.RequestException:
                             pass
+                        except UnicodeError as e:
+                            # UnicodeError: encoding with 'idna' codec failed (UnicodeError: label empty or too long)
+                            # https://bugs.python.org/issue32958
+                            if str(e) != "encoding with 'idna' codec failed (UnicodeError: label empty or too long)":
+                                raise
                     return (nid, fld, images)
 
                 w = re.sub(r'</?(b|i|u|strong|span)(?: [^>]+)>', '', w)
