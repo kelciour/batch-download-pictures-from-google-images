@@ -173,8 +173,13 @@ def updateNotes(browser, nids):
     def updateField(nid, fld, images):
         if not images:
             return
+        imgs = []
+        for fname, data in images:
+            fname = mw.col.media.writeData(fname, data)
+            filename = '<img src="%s">' % fname
+            imgs.append(filename)
         note = mw.col.getNote(nid)
-        note[fld] = " ".join(images)
+        note[fld] = " ".join(imgs)
         note.flush()
 
     mw.checkpoint("Add Google Images")
@@ -264,9 +269,7 @@ def updateNotes(browser, nids):
                                         with open(img_path, 'rb') as f:
                                             buf.write(f.read())
                                 data = buf.getvalue()
-                            fname = mw.col.media.writeData(fname, data)
-                            filename = '<img src="%s">' % fname
-                            images.append(filename)
+                            images.append((fname, data))
                             cnt += 1
                             if cnt == img_count:
                                 break
