@@ -33,7 +33,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
 import concurrent.futures
 
-from PIL import Image, ImageSequence
+from PIL import Image, ImageSequence, UnidentifiedImageError
 
 
 headers = {
@@ -241,8 +241,8 @@ def updateNotes(browser, nids):
                             fname = os.path.basename(path)
                             if not fname:
                                 fname = checksum(data)
+                            im = Image.open(io.BytesIO(data))
                             if img_width > 0 or img_height > 0:
-                                im = Image.open(io.BytesIO(data))
                                 width, height = im.width, im.height
                                 if img_width > 0:
                                     width = min(width, img_width)
@@ -274,6 +274,8 @@ def updateNotes(browser, nids):
                             if cnt == img_count:
                                 break
                         except requests.exceptions.RequestException:
+                            pass
+                        except UnidentifiedImageError:
                             pass
                         except UnicodeError as e:
                             # UnicodeError: encoding with 'idna' codec failed (UnicodeError: label empty or too long)
