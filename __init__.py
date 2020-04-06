@@ -35,6 +35,10 @@ import concurrent.futures
 
 from PIL import Image, ImageSequence, UnidentifiedImageError
 
+import warnings
+# https://github.com/python-pillow/Pillow/issues/3352#issuecomment-425733696
+warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
+
 
 headers = {
   "User-Agent": "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.67 Safari/537.36"
