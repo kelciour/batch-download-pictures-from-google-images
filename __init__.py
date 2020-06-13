@@ -214,8 +214,7 @@ def updateNotes(browser, nids):
 
                     if not results:
                         regex = re.escape("AF_initDataCallback({")
-                        regex += r'.*?' + re.escape(r', data:function(){return')
-                        regex += r'([\s\S]+?)' + re.escape(r'}});</script>')
+                        regex += r'[^<]*?data:[^<]*?' + r'(\[[^<]+\])'
 
                         for txt in re.findall(regex, html):
                             data = json.loads(txt)
