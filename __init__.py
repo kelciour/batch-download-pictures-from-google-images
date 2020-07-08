@@ -26,7 +26,7 @@ from anki.utils import checksum, tmpfile, noBundledLibs
 from anki.sound import _packagedCmd, si
 from distutils.spawn import find_executable
 
-from .designer import Ui_Dialog
+from .designer.main import Ui_Dialog
 
 # https://github.com/glutanimate/html-cleaner/blob/master/html_cleaner/main.py#L59
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
