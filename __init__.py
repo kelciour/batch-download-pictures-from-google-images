@@ -75,7 +75,7 @@ def updateNotes(browser, nids):
     if fld in fields:
         frm.srcField.setCurrentIndex(fields.index(fld))
 
-    for i, sq in enumerate(config["Search Queries"]):
+    for i, sq in enumerate(config["Search Queries"], 1):
         name = sq["Name"]
         url = sq["URL"]
         fld = sq["Field"]
@@ -107,12 +107,19 @@ def updateNotes(browser, nids):
         spinBox = QSpinBox()
         spinBox.setMinimum(1)
         spinBox.setValue(cnt)
+        spinBox.setStyleSheet("""
+           QSpinBox {
+            width: 24;
+        }""")
         frm.gridLayout.addWidget(spinBox, i, 3)
 
-        line = QFrame()
-        line.setFrameShape(QFrame.VLine)
-        line.setFrameShadow(QFrame.Sunken)
-        frm.gridLayout.addWidget(line, i, 4)
+        checkBox = QComboBox()
+        checkBox.setObjectName("checkBox")
+        checkBox.addItem("Skip")
+        checkBox.addItem("Overwrite")
+        checkBox.addItem("Append")
+        checkBox.setCurrentIndex(checkBox.findText(overwrite))
+        frm.gridLayout.addWidget(checkBox, i, 4)
 
         hbox = QHBoxLayout()
         hbox.addWidget(QLabel("Width:"))
@@ -134,18 +141,12 @@ def updateNotes(browser, nids):
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 6)
 
-        checkBox = QComboBox()
-        checkBox.setObjectName("checkBox")
-        checkBox.addItem("Skip")
-        checkBox.addItem("Overwrite")
-        checkBox.addItem("Append")
-        checkBox.setCurrentIndex(checkBox.findText(overwrite))
-        frm.gridLayout.addWidget(checkBox, i, 7)
-
     frm.gridLayout.setColumnStretch(1, 1)
-    frm.gridLayout.setColumnMinimumWidth(0, 100)
     frm.gridLayout.setColumnMinimumWidth(1, 120)
-    frm.gridLayout.setColumnMinimumWidth(2, 120)
+
+    columns = ["Name:", "Search Query:", "Target Field:", "Count:", "If not empty?", '', '']
+    for i, title in enumerate(columns):
+        frm.gridLayout.addWidget(QLabel(title), 0, i)
 
     if not d.exec_():
         return
@@ -153,8 +154,8 @@ def updateNotes(browser, nids):
     sf = frm.srcField.currentText()
 
     sq = []
-    columns = ["Name", "URL", "Field", "Count", '', 'Width', 'Height', 'Overwrite']
-    for i in range(frm.gridLayout.rowCount()):
+    columns = ["Name", "URL", "Field", "Count", 'Overwrite', 'Width', 'Height']
+    for i in range(frm.gridLayout.rowCount(), 1):
         q = {}
         for j in range(frm.gridLayout.columnCount()):
             key = columns[j]
