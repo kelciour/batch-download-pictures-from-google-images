@@ -193,12 +193,13 @@ def updateNotes(browser, nids):
             filename = '<img src="%s">' % fname
             imgs.append(filename)
         note = mw.col.getNote(nid)
+        delimiter = config.get("Delimiter", " ")
         if overwrite == "Append":
             if note[fld]:
-                note[fld] += " "
-            note[fld] += " ".join(imgs)
+                note[fld] += delimiter
+            note[fld] += delimiter.join(imgs)
         else:
-            note[fld] = " ".join(imgs)
+            note[fld] = delimiter.join(imgs)
         note.flush()
 
     mw.checkpoint("Add Google Images")
