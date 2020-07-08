@@ -82,7 +82,13 @@ def updateNotes(browser, nids):
         cnt = sq.get("Count", 1)
         width = sq.get("Width", -1)
         height = sq.get("Height", 260)
-        overwrite = sq.get("Overwrite", False)
+        overwrite = sq.get("Overwrite", "Skip")
+
+        # backward compatibility with the previous version
+        if overwrite == True:
+            overwrite = "Overwrite"
+        elif overwrite == False:
+            overwrite = "Skip"
 
         lineEdit = QLineEdit(name)
         frm.gridLayout.addWidget(lineEdit, i, 0)
@@ -91,6 +97,7 @@ def updateNotes(browser, nids):
         frm.gridLayout.addWidget(lineEdit, i, 1)
 
         combobox = QComboBox()
+        combobox.setObjectName("targetField")
         combobox.addItem("<ignored>")
         combobox.addItems(fields)
         if fld in fields:
@@ -127,13 +134,12 @@ def updateNotes(browser, nids):
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 6)
 
-        checkBox = QCheckBox()
-        checkBox.setText("Overwrite if not empty")
-        checkBox.setStyleSheet("""
-            QCheckBox:checked { color: black; }
-            QCheckBox:unchecked { color: grey; }
-        """)
-        checkBox.setChecked(overwrite)
+        checkBox = QComboBox()
+        checkBox.setObjectName("checkBox")
+        checkBox.addItem("Skip")
+        checkBox.addItem("Overwrite")
+        checkBox.addItem("Append")
+        checkBox.setCurrentIndex(checkBox.findText(overwrite))
         frm.gridLayout.addWidget(checkBox, i, 7)
 
     frm.gridLayout.setColumnStretch(1, 1)
@@ -155,20 +161,20 @@ def updateNotes(browser, nids):
             if not key:
                 continue
             item = frm.gridLayout.itemAtPosition(i, j)
-            
+
             if isinstance(item, QWidgetItem):
                 item = item.widget()
             elif isinstance(item, QLayoutItem):
                 item = item.itemAt(1).widget()
-            
-            if isinstance(item, QComboBox):
+
+            if isinstance(item, QComboBox) and item.objectName() == "targetField":
                 q[key] = item.currentText()
                 if q[key] == "<ignored>":
                     q[key] = ""
             elif isinstance(item, QSpinBox):
                 q[key] = item.value()
-            elif isinstance(item, QCheckBox):
-                q[key] = item.isChecked()
+            elif isinstance(item, QComboBox) and item.objectName() == "checkBox":
+                q[key] = item.currentText()
             else:
                 q[key] = item.text()
         sq.append(q)
@@ -177,7 +183,7 @@ def updateNotes(browser, nids):
     config["Search Queries"] = sq
     mw.addonManager.writeConfig(__name__, config)
 
-    def updateField(nid, fld, images):
+    def updateField(nid, fld, images, overwrite):
         if not images:
             return
         imgs = []
@@ -186,7 +192,12 @@ def updateNotes(browser, nids):
             filename = '<img src="%s">' % fname
             imgs.append(filename)
         note = mw.col.getNote(nid)
-        note[fld] = " ".join(imgs)
+        if overwrite == "Append":
+            if note[fld]:
+                note[fld] += " "
+            note[fld] += " ".join(imgs)
+        else:
+            note[fld] = " ".join(imgs)
         note.flush()
 
     mw.checkpoint("Add Google Images")
@@ -206,10 +217,10 @@ def updateNotes(browser, nids):
                 if not df:
                     continue
 
-                if not q["Overwrite"] and note[df]:
+                if note[df] and q["Overwrite"] == "Skip":
                     continue
 
-                def getImages(nid, fld, html, img_width, img_height, img_count):
+                def getImages(nid, fld, html, img_width, img_height, img_count, fld_overwrite):
                     soup = BeautifulSoup(html, "html.parser")
                     rg_meta = soup.find_all("div", {"class": "rg_meta"})
                     metadata = [json.loads(e.text) for e in rg_meta]
@@ -288,7 +299,7 @@ def updateNotes(browser, nids):
                             # https://bugs.python.org/issue32958
                             if str(e) != "encoding with 'idna' codec failed (UnicodeError: label empty or too long)":
                                 raise
-                    return (nid, fld, images)
+                    return (nid, fld, images, fld_overwrite)
 
                 w = re.sub(r'</?(b|i|u|strong|span)(?: [^>]+)>', '', w)
                 if '<' in w:
@@ -299,7 +310,7 @@ def updateNotes(browser, nids):
                     else:
                         w = re.sub(r'<br ?/?>[\s\S]+$', ' ', w)
                         w = re.sub(r'<[^>]+>', '', w)
-                        
+
                 clozes = re.findall(r'{{c\d+::(.*?)(?::.*?)?}}', w)
                 if clozes:
                     w = ' '.join(clozes)
@@ -309,24 +320,24 @@ def updateNotes(browser, nids):
                 try:
                     r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active".format(query), headers=headers, timeout=15)
                     r.raise_for_status()
-                    future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"])
+                    future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
                     jobs.append(future)
                 except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
                     pass
-                
+
             done, not_done = concurrent.futures.wait(jobs, timeout=0)
             for future in done:
-                nid, fld, images = future.result()
-                updateField(nid, fld, images)
+                nid, fld, images, overwrite = future.result()
+                updateField(nid, fld, images, overwrite)
                 processed.add(nid)
                 jobs.remove(future)
             else:
                 label = "Processed %s notes..." % len(processed)
                 mw.progress.update(label)
-        
+
         for future in concurrent.futures.as_completed(jobs):
-            nid, fld, images = future.result()
-            updateField(nid, fld, images)
+            nid, fld, images, overwrite = future.result()
+            updateField(nid, fld, images, overwrite)
             processed.add(nid)
             label = "Processed %s notes..." % len(processed)
             mw.progress.update(label)
