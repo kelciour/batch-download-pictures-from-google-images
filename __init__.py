@@ -306,6 +306,7 @@ def updateNotes(browser, nids):
                     return (nid, fld, images, fld_overwrite)
 
                 w = re.sub(r'</?(b|i|u|strong|span)(?: [^>]+)>', '', w)
+                w = re.sub(r'\[sound:.*?\]', '', w)
                 if '<' in w:
                     soup = BeautifulSoup(w, "html.parser")
                     for s in soup.stripped_strings:
