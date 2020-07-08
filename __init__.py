@@ -155,7 +155,7 @@ def updateNotes(browser, nids):
 
     sq = []
     columns = ["Name", "URL", "Field", "Count", 'Overwrite', 'Width', 'Height']
-    for i in range(frm.gridLayout.rowCount(), 1):
+    for i in range(1, frm.gridLayout.rowCount()):
         q = {}
         for j in range(frm.gridLayout.columnCount()):
             key = columns[j]
@@ -287,6 +287,8 @@ def updateNotes(browser, nids):
                                     if p.wait() == 0:
                                         with open(img_path, 'rb') as f:
                                             buf.write(f.read())
+                                else:
+                                    buf = io.BytesIO(data)
                                 data = buf.getvalue()
                             images.append((fname, data))
                             cnt += 1
