@@ -33,8 +33,6 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
 import concurrent.futures
 
-from PIL import Image, ImageSequence, UnidentifiedImageError
-
 import warnings
 # https://github.com/python-pillow/Pillow/issues/3352#issuecomment-425733696
 warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
@@ -46,6 +44,8 @@ headers = {
 
 
 def updateNotes(browser, nids):
+    from PIL import Image, ImageSequence, UnidentifiedImageError
+
     mw = browser.mw
 
     d = QDialog(browser)
