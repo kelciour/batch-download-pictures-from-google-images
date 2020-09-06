@@ -52,9 +52,6 @@ def updateNotes(browser, nids):
     frm = Ui_Dialog()
     frm.setupUi(d)
 
-    icon = os.path.join(os.path.dirname(__file__), "icons", "google.ico")
-    d.setWindowIcon(QIcon(icon))
-
     config = mw.addonManager.getConfig(__name__)
 
     mpv_executable, env = find_executable("mpv"), os.environ
