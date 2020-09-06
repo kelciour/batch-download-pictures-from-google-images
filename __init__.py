@@ -181,6 +181,12 @@ def updateNotes(browser, nids):
     config["Search Queries"] = sq
     mw.addonManager.writeConfig(__name__, config)
 
+    def sleep(seconds):
+        start = time.time()
+        while time.time() - start < seconds:
+            time.sleep(0.01)
+            QApplication.instance().processEvents()
+
     def updateField(nid, fld, images, overwrite):
         if not images:
             return
@@ -319,13 +325,26 @@ def updateNotes(browser, nids):
 
                 query = q["URL"].replace("{}", w)
 
-                try:
-                    r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active".format(query), headers=headers, timeout=15)
-                    r.raise_for_status()
-                    future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
-                    jobs.append(future)
-                except (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError) as e:
-                    pass
+                retry_cnt = 0
+                while True:
+                    try:
+                        r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active".format(query), headers=headers, timeout=15)
+                        r.raise_for_status()
+                        future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
+                        jobs.append(future)
+                        break
+                    except requests.exceptions.RequestException as e:
+                        if retry_cnt == 3:
+                            raise
+                        retry_cnt += 1
+                        if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 429:
+                            mw.progress.update(f"Sleeping for {retry_cnt * 30} seconds...")
+                            sleep(retry_cnt * 30)
+                        elif isinstance(e, (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError)):
+                            mw.progress.update(f"Sleeping for {retry_cnt * 5} seconds...")
+                            sleep(retry_cnt * 5)
+                        else:
+                            raise
 
             done, not_done = concurrent.futures.wait(jobs, timeout=0)
             for future in done:
