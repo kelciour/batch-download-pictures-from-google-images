@@ -1,11 +1,4 @@
 {
-    "name": "Batch Download Pictures From Google Images (Beta)",
-    "package": "561924305 (beta)",
-    "ankiweb_id": "561924305",
-    "author": "kelciour",
-    "version": "v0.1.1-beta",
-    "homepage": "https://github.com/kelciour/batch-download-pictures-from-google-images",
-    "conflicts": [
-        "561924305"
-    ]
+    "name": "Batch Download Pictures From Google Images",
+    "package": "561924305"
 }
