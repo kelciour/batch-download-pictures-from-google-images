@@ -297,6 +297,8 @@ def updateNotes(browser, nids):
                             cnt += 1
                             if cnt == img_count:
                                 break
+                        except requests.packages.urllib3.exceptions.LocationParseError:
+                            pass
                         except requests.exceptions.RequestException:
                             pass
                         except UnidentifiedImageError:
