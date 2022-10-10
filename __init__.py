@@ -247,6 +247,17 @@ def updateNotes(browser, nids):
                             except Exception as e:
                                 pass
 
+                        if not results:
+                            try:
+                                for d in data[56][1][0][0][1][0]:
+                                    try:
+                                        d = d[0][0]["444383007"]
+                                        results.append(d[1][3][0])
+                                    except:
+                                        pass
+                            except:
+                                pass
+
                     cnt = 0
                     images = []
                     for url in results:
