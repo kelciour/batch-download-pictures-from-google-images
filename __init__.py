@@ -352,9 +352,11 @@ def updateNotes(browser, nids):
                         retry_cnt += 1
                         if isinstance(e, requests.exceptions.HTTPError) and e.response.status_code == 429:
                             mw.progress.update(f"Sleeping for {retry_cnt * 30} seconds...")
+                            QApplication.instance().processEvents()
                             sleep(retry_cnt * 30)
                         elif isinstance(e, (requests.exceptions.ReadTimeout, requests.exceptions.ConnectionError)):
                             mw.progress.update(f"Sleeping for {retry_cnt * 5} seconds...")
+                            QApplication.instance().processEvents()
                             sleep(retry_cnt * 5)
                         else:
                             raise
@@ -368,6 +370,7 @@ def updateNotes(browser, nids):
             else:
                 label = "Processed %s notes..." % len(processed)
                 mw.progress.update(label)
+                QApplication.instance().processEvents()
 
         for future in concurrent.futures.as_completed(jobs):
             nid, fld, images, overwrite = future.result()
@@ -375,6 +378,7 @@ def updateNotes(browser, nids):
             processed.add(nid)
             label = "Processed %s notes..." % len(processed)
             mw.progress.update(label)
+            QApplication.instance().processEvents()
 
     browser.model.endReset()
     mw.requireReset()
