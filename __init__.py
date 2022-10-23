@@ -341,7 +341,7 @@ def updateNotes(browser, nids):
                 retry_cnt = 0
                 while True:
                     try:
-                        r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active".format(query), headers=headers, timeout=15)
+                        r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
                         r.raise_for_status()
                         future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
                         jobs.append(future)
