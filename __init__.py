@@ -381,7 +381,7 @@ def updateNotes(browser, nids):
             QApplication.instance().processEvents()
 
     browser.model.endReset()
-    mw.requireReset()
+    mw.reset()
     mw.progress.finish()
     showInfo(ngettext("Processed %d note.", "Processed %d notes.", len(nids)) % len(nids), parent=browser)
 
