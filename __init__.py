@@ -42,9 +42,18 @@ headers = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
 }
 
+info = None
+if is_win:
+    info = subprocess.STARTUPINFO()
+    info.wShowWindow = subprocess.SW_HIDE
+    info.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
 def updateNotes(browser, nids):
-    from PIL import Image, ImageSequence, UnidentifiedImageError
+    try:
+        from PIL import Image, ImageSequence, UnidentifiedImageError
+        is_PIL = True
+    except:
+        is_PIL = False
 
     mw = browser.mw
 
@@ -274,36 +283,40 @@ def updateNotes(browser, nids):
                             fname = os.path.basename(path)
                             if not fname:
                                 fname = checksum(data)
-                            im = Image.open(io.BytesIO(data))
                             if img_width > 0 or img_height > 0:
-                                width, height = im.width, im.height
-                                if img_width > 0:
-                                    width = min(width, img_width)
-                                if img_height > 0:
-                                    height = min(height, img_height)
-                                buf = io.BytesIO()
-                                if getattr(im, 'n_frames', 1) == 1:
-                                    im.thumbnail((width, height))
-                                    im.save(buf, format=im.format, optimize=True)
+                                if is_PIL:
+                                    try:
+                                        im = Image.open(io.BytesIO(data))
+                                    except UnidentifiedImageError:
+                                        continue
+                                    width, height = im.width, im.height
+                                    if img_width > 0:
+                                        width = min(width, img_width)
+                                    if img_height > 0:
+                                        height = min(height, img_height)
+                                    buf = io.BytesIO()
+                                    if getattr(im, 'n_frames', 1) == 1:
+                                        im.thumbnail((width, height))
+                                        im.save(buf, format=im.format, optimize=True)
+                                    else:
+                                        buf = io.BytesIO(data)
+                                    data = buf.getvalue()
                                 elif mpv_executable:
                                     thread_id = threading.get_native_id()
                                     tmp_path = tmpfile(suffix='.{}'.format(thread_id))
                                     with open(tmp_path, 'wb') as f:
                                         f.write(data)
-                                    img_fmt = im.format.lower()
-                                    img_ext = '.' + img_fmt
+                                    img_ext = (os.path.splitext(fname)[-1]).lower()
+                                    if img_ext not in ['.jpg', '.jpeg', '.gif', '.png']:
+                                        img_ext = '.jpg'
                                     img_path = tmpfile(suffix=img_ext)
-                                    cmd = [mpv_executable, tmp_path, "-vf", "lavfi=[scale='min({},iw)':'min({},ih)':force_original_aspect_ratio=decrease:flags=lanczos]".format(img_width, img_height), "-o", img_path]
+                                    cmd = [mpv_executable, tmp_path, "--no-audio", "-frames", "1", "-vf", "lavfi=[scale='min({},iw)':'min({},ih)':force_original_aspect_ratio=decrease:out_range=pc:flags=lanczos]".format(img_width, img_height), "-o", img_path]
                                     with noBundledLibs():
-                                        p = subprocess.Popen(cmd, startupinfo=si, stdin=subprocess.PIPE,
-                                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                                            env=env)
-                                    if p.wait() == 0:
+                                        p = subprocess.Popen(cmd, startupinfo=info)
+                                    ret = p.wait()
+                                    if ret == 0:
                                         with open(img_path, 'rb') as f:
-                                            buf.write(f.read())
-                                else:
-                                    buf = io.BytesIO(data)
-                                data = buf.getvalue()
+                                            data = f.read()
                             images.append((fname, data))
                             cnt += 1
                             if cnt == img_count:
@@ -311,8 +324,6 @@ def updateNotes(browser, nids):
                         except requests.packages.urllib3.exceptions.LocationParseError:
                             pass
                         except requests.exceptions.RequestException:
-                            pass
-                        except UnidentifiedImageError:
                             pass
                         except UnicodeError as e:
                             # UnicodeError: encoding with 'idna' codec failed (UnicodeError: label empty or too long)
