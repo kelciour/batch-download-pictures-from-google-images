@@ -18,7 +18,7 @@ import threading
 from bs4 import BeautifulSoup
 
 from aqt.qt import *
-from aqt.utils import showInfo, tooltip
+from aqt.utils import showInfo, showText, tooltip
 from anki.hooks import addHook
 from anki.lang import ngettext
 from anki.utils import checksum, tmpfile, noBundledLibs
@@ -214,6 +214,7 @@ def updateNotes(browser, nids):
             note[fld] = delimiter.join(imgs)
         note.flush()
 
+    is_consent_error = False
     mw.checkpoint("Add Google Images")
     mw.progress.start(immediate=True)
     browser.model.beginReset()
@@ -350,10 +351,14 @@ def updateNotes(browser, nids):
                 query = q["URL"].replace("{}", w)
 
                 retry_cnt = 0
+
                 while True:
                     try:
-                        r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
+                        r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active&ie=utf8&oe=utf8&ucbcb=1".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
                         r.raise_for_status()
+                        if '/consent.google.com/' in r.url:
+                            is_consent_error = True
+                            break
                         future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
                         jobs.append(future)
                         break
@@ -371,6 +376,8 @@ def updateNotes(browser, nids):
                             sleep(retry_cnt * 5)
                         else:
                             raise
+                if is_consent_error:
+                    break
 
             done, not_done = concurrent.futures.wait(jobs, timeout=0)
             for future in done:
@@ -391,10 +398,14 @@ def updateNotes(browser, nids):
             mw.progress.update(label)
             QApplication.instance().processEvents()
 
+    QApplication.instance().processEvents()
+    mw.progress.finish()
     browser.model.endReset()
     mw.reset()
-    mw.progress.finish()
-    showInfo(ngettext("Processed %d note.", "Processed %d notes.", len(nids)) % len(nids), parent=browser)
+    if is_consent_error:
+        showText('ERROR: "Before you continue to Google" pop-up', parent=browser)
+    else:
+        showInfo(ngettext("Processed %d note.", "Processed %d notes.", len(nids)) % len(nids), parent=browser)
 
 
 def onAddImages(browser):
