@@ -282,6 +282,8 @@ def updateNotes(browser, nids):
                             url = re.sub(r"\?.*?$", "", url)
                             path = urllib.parse.unquote(url)
                             fname = os.path.basename(path)
+                            if fname.startswith('_'):
+                                fname = fname.lstrip('_')
                             if not fname:
                                 fname = checksum(data)
                             if img_width > 0 or img_height > 0:
