@@ -133,7 +133,7 @@ def updateNotes(browser, nids):
         spinBox.setMinimum(-1)
         spinBox.setMaximum(9999)
         spinBox.setValue(width)
-        spinBox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        spinBox.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 5)
 
@@ -143,7 +143,7 @@ def updateNotes(browser, nids):
         spinBox.setMinimum(-1)
         spinBox.setMaximum(9999)
         spinBox.setValue(height)
-        spinBox.setAlignment(Qt.AlignRight|Qt.AlignVCenter)
+        spinBox.setAlignment(Qt.AlignmentFlag.AlignRight|Qt.AlignmentFlag.AlignVCenter)
         hbox.addWidget(spinBox)
         frm.gridLayout.addLayout(hbox, i, 6)
 
@@ -154,7 +154,7 @@ def updateNotes(browser, nids):
     for i, title in enumerate(columns):
         frm.gridLayout.addWidget(QLabel(title), 0, i)
 
-    if not d.exec_():
+    if not d.exec():
         return
 
     sf = frm.srcField.currentText()
