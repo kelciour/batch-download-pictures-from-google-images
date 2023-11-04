@@ -224,12 +224,18 @@ def updateNotes(browser, nids):
         for c, nid in enumerate(nids, 1):
             note = mw.col.getNote(nid)
 
+            if sf not in note:
+                continue
+
             w = note[sf]
 
             for q in sq:
                 df = q["Field"]
 
                 if not df:
+                    continue
+
+                if df not in note:
                     continue
 
                 if note[df] and q["Overwrite"] == "Skip":
