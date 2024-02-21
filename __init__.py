@@ -26,7 +26,10 @@ from anki.utils import checksum, tmpfile, noBundledLibs
 from anki.sound import _packagedCmd, si
 from distutils.spawn import find_executable
 
-from .designer.main import Ui_Dialog
+try:
+    from .designer import form_qt6 as form
+except:
+    from .designer import form_qt5 as form
 
 # https://github.com/glutanimate/html-cleaner/blob/master/html_cleaner/main.py#L59
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
@@ -58,7 +61,7 @@ def updateNotes(browser, nids):
     mw = browser.mw
 
     d = QDialog(browser)
-    frm = Ui_Dialog()
+    frm = form.Ui_Dialog()
     frm.setupUi(d)
 
     config = mw.addonManager.getConfig(__name__)
