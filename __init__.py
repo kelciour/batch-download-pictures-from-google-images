@@ -260,66 +260,12 @@ def updateNotes(browser, nids):
                     continue
 
                 def getImages(nid, fld, html, img_width, img_height, img_count, fld_overwrite):
-                    soup = BeautifulSoup(html, "html.parser")
-                    rg_meta = soup.find_all("div", {"class": "rg_meta"})
-                    metadata = [json.loads(e.text) for e in rg_meta]
-                    results = [d["ou"] for d in metadata]
-
-                    if not results:
-                        texts = []
-
-                        regex = re.escape("AF_initDataCallback({")
-                        regex += r'[^<]*?data:[^<]*?' + r'(\[[^<]+\])'
-
-                        for txt in re.findall(regex, html):
-                            texts.append(txt)
-
-                        regex = r'var m=(\{"[^"]+":\[.+?\]\]\});'
-
-                        for txt in re.findall(regex, html):
-                            texts.append(txt)
-
-                        for txt in texts:
-                            data = json.loads(txt)
-
-                            try:
-                                for d in data[31][0][12][2]:
-                                    try:
-                                        results.append(d[1][3][0])
-                                    except Exception as e:
-                                        pass
-                            except Exception as e:
-                                pass
-
-                            try:
-                                for d in data[56][1][0][0][1][0]:
-                                    try:
-                                        d = d[0][0]["444383007"]
-                                        results.append(d[1][3][0])
-                                    except:
-                                        pass
-                            except:
-                                pass
-
-                            try:
-                                for key in data:
-                                    try:
-                                        for d in data[key]:
-                                            try:
-                                                if len(d) == 10 and len(d[3]) == 3:
-                                                   results.append(d[3][0])
-                                            except:
-                                                pass
-                                    except:
-                                        pass
-                            except:
-                                pass
-
-
+                    json_ = json.loads(html[5:])
                     cnt = 0
                     images = []
-                    for url in results:
+                    for result in json_["ichunklite"]["results"]:
                         try:
+                            url = result["large_image_url"]
                             r = requests.get(url, headers=headers, timeout=15)
                             r.raise_for_status()
                             data = r.content
@@ -404,7 +350,7 @@ def updateNotes(browser, nids):
 
                 while True:
                     try:
-                        r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active&ie=utf8&oe=utf8&ucbcb=1".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
+                        r = requests.get("https://www.google.com/search?q={}&tbm=isch&async=_id:islrg_c,_fmt:json&asearch=ichunklite&safe=active".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
                         r.raise_for_status()
                         is_search_error = False
                         if '/consent.google.com/' in r.url:
