@@ -217,7 +217,18 @@ def updateNotes(browser, nids):
             note[fld] = delimiter.join(imgs)
         note.flush()
 
+    for q in sq:
+        if q["Field"]:
+            break
+    else:
+        tooltip("No Target Field selected.")
+        return
+
+    error_msg = ""
+    error_source_field_not_found = 0
+    error_target_field_not_found = 0
     is_consent_error = False
+    is_search_error = True
     mw.checkpoint("Add Google Images")
     mw.progress.start(immediate=True)
     browser.model.beginReset()
@@ -228,10 +239,12 @@ def updateNotes(browser, nids):
             note = mw.col.getNote(nid)
 
             if sf not in note:
+                error_source_field_not_found += 1
                 continue
 
             w = note[sf]
 
+            is_target_field_found = False
             for q in sq:
                 df = q["Field"]
 
@@ -240,6 +253,8 @@ def updateNotes(browser, nids):
 
                 if df not in note:
                     continue
+
+                is_target_field_found = True
 
                 if note[df] and q["Overwrite"] == "Skip":
                     continue
@@ -251,10 +266,20 @@ def updateNotes(browser, nids):
                     results = [d["ou"] for d in metadata]
 
                     if not results:
+                        texts = []
+
                         regex = re.escape("AF_initDataCallback({")
                         regex += r'[^<]*?data:[^<]*?' + r'(\[[^<]+\])'
 
                         for txt in re.findall(regex, html):
+                            texts.append(txt)
+
+                        regex = r'var m=(\{"[^"]+":\[.+?\]\]\});'
+
+                        for txt in re.findall(regex, html):
+                            texts.append(txt)
+
+                        for txt in texts:
                             data = json.loads(txt)
 
                             try:
@@ -266,7 +291,6 @@ def updateNotes(browser, nids):
                             except Exception as e:
                                 pass
 
-                        if not results:
                             try:
                                 for d in data[56][1][0][0][1][0]:
                                     try:
@@ -276,6 +300,21 @@ def updateNotes(browser, nids):
                                         pass
                             except:
                                 pass
+
+                            try:
+                                for key in data:
+                                    try:
+                                        for d in data[key]:
+                                            try:
+                                                if len(d) == 10 and len(d[3]) == 3:
+                                                   results.append(d[3][0])
+                                            except:
+                                                pass
+                                    except:
+                                        pass
+                            except:
+                                pass
+
 
                     cnt = 0
                     images = []
@@ -367,12 +406,17 @@ def updateNotes(browser, nids):
                     try:
                         r = requests.get("https://www.google.com/search?tbm=isch&q={}&safe=active&ie=utf8&oe=utf8&ucbcb=1".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
                         r.raise_for_status()
+                        is_search_error = False
                         if '/consent.google.com/' in r.url:
                             is_consent_error = True
                             break
                         future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
                         jobs.append(future)
                         break
+                    except requests.exceptions.HTTPError as e:
+                        if is_search_error:
+                            error_msg = str(e)
+                            break
                     except requests.exceptions.RequestException as e:
                         if retry_cnt == 3:
                             raise
@@ -389,6 +433,11 @@ def updateNotes(browser, nids):
                             raise
                 if is_consent_error:
                     break
+                if is_search_error:
+                    break
+
+            if not is_target_field_found:
+                error_target_field_not_found += 1
 
             done, not_done = concurrent.futures.wait(jobs, timeout=0)
             for future in done:
@@ -415,8 +464,19 @@ def updateNotes(browser, nids):
     mw.reset()
     if is_consent_error:
         showText('ERROR: "Before you continue to Google" pop-up', parent=browser)
+    elif is_search_error:
+        showText(error_msg, title="Batch Download Pictures from Google Images", parent=browser)
     else:
-        showInfo(ngettext("Processed %d note.", "Processed %d notes.", len(nids)) % len(nids), parent=browser)
+        msg = ngettext("Processed %d note.", "Processed %d notes.", len(nids)) % len(nids)
+        if error_source_field_not_found > 0:
+            msg2 = ngettext("Skipped %d note", \
+                            "Skipped %d notes", error_source_field_not_found) % error_source_field_not_found
+            msg += "\n" + msg2 + ", no Source Field found."
+        if error_target_field_not_found > 0:
+            msg2 = ngettext("Skipped %d note", \
+                            "Skipped %d notes", error_target_field_not_found) % error_target_field_not_found
+            msg += "\n" + msg2 + ", no Target Field found."
+        showInfo(msg, parent=browser)
 
 
 def onAddImages(browser):
