@@ -258,12 +258,18 @@ def updateNotes(browser, nids):
                     continue
 
                 def getImages(nid, fld, html, img_width, img_height, img_count, fld_overwrite):
-                    json_ = json.loads(html[5:])
+                    results = []
+                    try:
+                        json_ = json.loads(html[5:])
+                        for r in json_["ichunklite"].get("results", []):
+                            image_url = r["large_image_url"]
+                            results.append(image_url)
+                    except Exception as e:
+                        raise Exception("\n\n--------------\n\n" + html + "\n\n--------------\n\n") from e
                     cnt = 0
                     images = []
-                    for result in json_["ichunklite"]["results"]:
+                    for url in results:
                         try:
-                            url = result["large_image_url"]
                             r = requests.get(url, headers=headers, timeout=15)
                             r.raise_for_status()
                             data = r.content
@@ -344,6 +350,10 @@ def updateNotes(browser, nids):
 
                 query = q["URL"].replace("{}", w)
 
+                query = query.strip()
+                if not query:
+                    continue
+
                 retry_cnt = 0
 
                 while True:
@@ -415,7 +425,7 @@ def updateNotes(browser, nids):
     mw.reset()
     if is_consent_error:
         showText('ERROR: "Before you continue to Google" pop-up', parent=browser)
-    elif is_search_error:
+    elif error_msg:
         showText(error_msg, title="Batch Download Pictures from Google Images", parent=browser)
     else:
         msg = ngettext("Processed %d note.", "Processed %d notes.", len(nids)) % len(nids)
