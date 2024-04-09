@@ -200,8 +200,6 @@ def updateNotes(browser, nids):
             QApplication.instance().processEvents()
 
     def updateField(nid, fld, images, overwrite):
-        if not images:
-            return
         imgs = []
         for fname, data in images:
             fname = mw.col.media.writeData(fname, data)
@@ -210,7 +208,7 @@ def updateNotes(browser, nids):
         note = mw.col.getNote(nid)
         delimiter = config.get("Delimiter", " ")
         if overwrite == "Append":
-            if note[fld]:
+            if imgs and note[fld]:
                 note[fld] += delimiter
             note[fld] += delimiter.join(imgs)
         else:
