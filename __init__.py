@@ -348,7 +348,14 @@ def updateNotes(browser, nids):
 
                 while True:
                     try:
-                        r = requests.get("https://www.google.com/search?q={}&tbm=isch&async=_id:islrg_c,_fmt:json&asearch=ichunklite&safe=active".format(query), headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
+                        payload = {
+                            "q": query,
+                            "tbm": "isch",
+                            "async": "_id:islrg_c,_fmt:json",
+                            "asearch": "ichunklite",
+                            "safe": "active"
+                        }
+                        r = requests.get("https://www.google.com/search", params=payload, headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
                         r.raise_for_status()
                         is_search_error = False
                         if '/consent.google.com/' in r.url:
