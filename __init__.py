@@ -24,7 +24,10 @@ from anki.lang import ngettext
 from anki.utils import checksum, tmpfile, noBundledLibs
 
 from anki.sound import _packagedCmd, si
-from distutils.spawn import find_executable
+try:
+    from distutils.spawn import find_executable
+except:
+    from shutil import which as find_executable
 
 try:
     from .designer import form_qt6 as form
