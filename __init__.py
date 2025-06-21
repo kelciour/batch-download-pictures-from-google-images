@@ -275,7 +275,7 @@ def updateNotes(browser, nids):
                         for txt in re.findall(regex, html):
                             texts.append(txt)
 
-                        regex = r'var m=(\{"[^"]+":\[.+?\]\]\});'
+                        regex = r'var m=(\{"[^"]+":\[.+?\]\});'
 
                         for txt in re.findall(regex, html):
                             texts.append(txt)
