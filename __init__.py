@@ -18,10 +18,12 @@ import threading
 from bs4 import BeautifulSoup
 
 from aqt.qt import *
+from PyQt6.QtNetwork import QNetworkCookie, QNetworkCookieJar
+
 from aqt.utils import showInfo, showText, tooltip
 from anki.hooks import addHook
 from anki.lang import ngettext
-from anki.utils import checksum, tmpfile, noBundledLibs
+from anki.utils import checksum, tmpfile, no_bundled_libs
 
 from anki.sound import _packagedCmd, si
 try:
@@ -54,6 +56,77 @@ if is_win:
     info.wShowWindow = subprocess.SW_HIDE
     info.dwFlags = subprocess.STARTF_USESHOWWINDOW
 
+class GoogleHelper(QDialog):
+    def __init__(self, query, browser, hide):
+        QDialog.__init__(self, browser)
+        self.start = False
+        self.finish = False
+        self.ready = None
+        self.hide = hide
+        self.query = query
+        self.content = ""
+        self.count = 0
+        self.startTime = time.time()
+        self.initUI()
+
+    def initUI(self):
+        self.webEngineView = QWebEngineView(self)
+        self.webEnginePage = QWebEnginePage(self.webEngineView)
+        self.webEngineView.setPage(self.webEnginePage)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.webEngineView)
+        self.setLayout(layout)
+
+        self.webEngineView.page().urlChanged.connect(self.onLoadFinished)
+
+        self.profile = self.webEngineView.page().profile()
+        self.profile.setHttpUserAgent(headers["User-Agent"])
+        cookie_store = self.profile.cookieStore()
+        cookie = QNetworkCookie(b"CONSENT", b"YES+")
+        cookie.setDomain(".google.com")
+        cookie.setPath("/")
+        cookie.setSecure(True)
+        cookie_store.setCookie(cookie)
+
+        self.setWindowTitle("Batch Download Pictures From Google Images")
+
+        self.setWindowState
+        self.setMinimumSize(800, 600)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+
+        if self.hide:
+            self.setWindowState(Qt.WindowState.WindowMinimized)
+            self.setWindowOpacity(0)
+
+        self.show()
+
+        self.webEngineView.load(QUrl(self.query))
+
+    def onLoadFinished(self):
+        self.start = True
+        self.updateReadyState()
+
+    def onReadyState(self, state):
+        if state != "complete":
+            QApplication.instance().processEvents()
+            return QTimer.singleShot(1000, self.updateReadyState)
+        self.webEngineView.page().toHtml(self.getHTML)
+
+    def updateReadyState(self):
+        self.webEngineView.page().runJavaScript(
+            "document.readyState", self.onReadyState
+        )
+
+    def getHTML(self, html):
+        self.content = html
+        self.count += 1
+        if "http://schema.org/SearchResultsPage" not in self.content and self.count < 10:
+            return QTimer.singleShot(1500, self.updateReadyState)
+        self.finish = True
+        self.done(0)
+
+
 def updateNotes(browser, nids):
     try:
         from PIL import Image, ImageSequence, UnidentifiedImageError
@@ -74,12 +147,12 @@ def updateNotes(browser, nids):
         mpv_path, env = _packagedCmd(["mpv"])
         mpv_executable = mpv_path[0]
         try:
-            with noBundledLibs():
+            with no_bundled_libs():
                 p = subprocess.Popen([mpv_executable, "--version"], startupinfo=si)
         except OSError:
             mpv_executable = None
 
-    note = mw.col.getNote(nids[0])
+    note = mw.col.get_note(nids[0])
     fields = note.keys()
 
     frm.srcField.addItems(fields)
@@ -160,6 +233,8 @@ def updateNotes(browser, nids):
     for i, title in enumerate(columns):
         frm.gridLayout.addWidget(QLabel(title), 0, i)
 
+    frm.cbHideWindow.setChecked(config["Hide Window"])
+
     if not d.exec():
         return
 
@@ -192,8 +267,12 @@ def updateNotes(browser, nids):
                 q[key] = item.text()
         sq.append(q)
 
+    hide_window = frm.cbHideWindow.isChecked()
+
     config["Source Field"] = sf
     config["Search Queries"] = sq
+    config["Hide Window"] = hide_window
+
     mw.addonManager.writeConfig(__name__, config)
 
     def sleep(seconds):
@@ -205,10 +284,10 @@ def updateNotes(browser, nids):
     def updateField(nid, fld, images, overwrite):
         imgs = []
         for fname, data in images:
-            fname = mw.col.media.writeData(fname, data)
+            fname = mw.col.media.write_data(fname, data)
             filename = '<img src="%s">' % fname
             imgs.append(filename)
-        note = mw.col.getNote(nid)
+        note = mw.col.get_note(nid)
         delimiter = config.get("Delimiter", " ")
         if overwrite == "Append":
             if imgs and note[fld]:
@@ -216,7 +295,7 @@ def updateNotes(browser, nids):
             note[fld] += delimiter.join(imgs)
         else:
             note[fld] = delimiter.join(imgs)
-        note.flush()
+        mw.col.update_note(note)
 
     for q in sq:
         if q["Field"]:
@@ -230,14 +309,12 @@ def updateNotes(browser, nids):
     error_target_field_not_found = 0
     is_consent_error = False
     is_search_error = True
-    mw.checkpoint("Add Google Images")
     mw.progress.start(immediate=True)
-    browser.model.beginReset()
     with concurrent.futures.ThreadPoolExecutor() as executor:
         jobs = []
         processed = set()
         for c, nid in enumerate(nids, 1):
-            note = mw.col.getNote(nid)
+            note = mw.col.get_note(nid)
 
             if sf not in note:
                 error_source_field_not_found += 1
@@ -316,12 +393,12 @@ def updateNotes(browser, nids):
                             except:
                                 pass
 
-
                     cnt = 0
                     images = []
                     for url in results:
                         try:
                             r = requests.get(url, headers=headers, timeout=15)
+                            QApplication.instance().processEvents()
                             r.raise_for_status()
                             data = r.content
                             if 'text/html' in r.headers.get('content-type', ''):
@@ -363,7 +440,7 @@ def updateNotes(browser, nids):
                                         img_ext = '.jpg'
                                     img_path = tmpfile(suffix=img_ext)
                                     cmd = [mpv_executable, tmp_path, "--no-audio", "-frames", "1", "-vf", "lavfi=[scale='min({},iw)':'min({},ih)':force_original_aspect_ratio=decrease:out_range=pc:flags=lanczos]".format(img_width, img_height), "-o", img_path]
-                                    with noBundledLibs():
+                                    with no_bundled_libs():
                                         p = subprocess.Popen(cmd, startupinfo=info)
                                     ret = p.wait()
                                     if ret == 0:
@@ -418,13 +495,15 @@ def updateNotes(browser, nids):
                             "safe": "active",
                             "tbs": "itp:photo,ic:color,iar:w"
                         }
-                        r = requests.get("https://www.google.com/search", params=payload, headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
-                        r.raise_for_status()
+                        ex = GoogleHelper("https://www.google.com/search?" + urllib.parse.urlencode(payload), browser, hide_window)
+                        ex.exec()
+                        QApplication.instance().processEvents()
+                        data = ex.content
                         is_search_error = False
-                        if '/consent.google.com/' in r.url:
-                            is_consent_error = True
-                            break
-                        future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
+                        # if '/consent.google.com/' in r.url:
+                        #     is_consent_error = True
+                        #     break
+                        future = executor.submit(getImages, nid, df, data, q["Width"], q["Height"], q["Count"], q["Overwrite"])
                         jobs.append(future)
                         break
                     except requests.exceptions.HTTPError as e:
@@ -457,6 +536,7 @@ def updateNotes(browser, nids):
             for future in done:
                 nid, fld, images, overwrite = future.result()
                 updateField(nid, fld, images, overwrite)
+                QApplication.instance().processEvents()
                 processed.add(nid)
                 jobs.remove(future)
             else:
@@ -474,7 +554,6 @@ def updateNotes(browser, nids):
 
     QApplication.instance().processEvents()
     mw.progress.finish()
-    browser.model.endReset()
     mw.reset()
     if is_consent_error:
         showText('ERROR: "Before you continue to Google" pop-up', parent=browser)
