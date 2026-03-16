@@ -18,10 +18,12 @@ import threading
 from bs4 import BeautifulSoup
 
 from aqt.qt import *
+from PyQt6.QtNetwork import QNetworkCookie, QNetworkCookieJar
+
 from aqt.utils import showInfo, showText, tooltip
 from anki.hooks import addHook
 from anki.lang import ngettext
-from anki.utils import checksum, tmpfile, noBundledLibs
+from anki.utils import checksum, tmpfile, no_bundled_libs
 
 from anki.sound import _packagedCmd, si
 try:
@@ -33,7 +35,6 @@ try:
     from .designer import form_qt6 as form
 except:
     from .designer import form_qt5 as form
-
 # https://github.com/glutanimate/html-cleaner/blob/master/html_cleaner/main.py#L59
 sys.path.append(os.path.join(os.path.dirname(__file__), "vendor"))
 
@@ -45,14 +46,172 @@ warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
 
 
 headers = {
-  "User-Agent": "Opera/9.80 (iPad; Opera Mini/5.0.17381/503; U; eu) Presto/2.6.35 Version/11.10)"
+  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Accept-Encoding": "gzip, deflate, br",
+  "Connection": "keep-alive",
+  "Cache-Control": "max-age=0",
+  "Pragma": "no-cache",
+  "Upgrade-Insecure-Requests": "1",
+  "Sec-Fetch-Site": "none",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-User": "?1",
+  "Sec-Fetch-Dest": "document"
 }
+
+rq_user_agent = "Opera/9.80 (iPad; Opera Mini/5.0.17381/503; U; eu) Presto/2.6.35 Version/11.10)"
 
 info = None
 if is_win:
     info = subprocess.STARTUPINFO()
     info.wShowWindow = subprocess.SW_HIDE
     info.dwFlags = subprocess.STARTF_USESHOWWINDOW
+
+class GoogleHelper(QDialog):
+    def __init__(self, query, browser, hide, mw):
+        QDialog.__init__(self, browser)
+        self.start = False
+        self.finish = False
+        self.ready = None
+        self.hide = hide
+        self.query = query
+        self.is_captcha = False
+        self.content = ""
+        self.results = []
+        self.count = 0
+        self.mw = mw
+        self.startTime = time.time()
+        self.initUI()
+
+    def initUI(self):
+        self.webEngineView = QWebEngineView(self)
+        self.webEnginePage = QWebEnginePage(self.webEngineView)
+        self.webEngineView.setPage(self.webEnginePage)
+
+        layout = QVBoxLayout()
+        layout.addWidget(self.webEngineView)
+        self.setLayout(layout)
+
+        self.webEngineView.page().urlChanged.connect(self.onLoadFinished)
+
+        self.profile = self.webEngineView.page().profile()
+        self.profile.setHttpUserAgent(headers["User-Agent"])
+        cookie_store = self.profile.cookieStore()
+        cookie = QNetworkCookie(b"CONSENT", b"YES+")
+        cookie.setDomain(".google.com")
+        cookie.setPath("/")
+        cookie.setSecure(True)
+        cookie_store.setCookie(cookie)
+
+        self.setWindowTitle("Batch Download Pictures From Google Images")
+
+        self.setWindowState
+        self.setMinimumSize(1280, 900)
+        self.setWindowModality(Qt.WindowModality.WindowModal)
+
+        if self.hide:
+            self.setWindowState(Qt.WindowState.WindowMinimized)
+            self.setWindowOpacity(0)
+
+        self.show()
+
+        self.webEngineView.load(QUrl(self.query))
+
+    def onLoadFinished(self):
+        self.start = True
+        self.updateReadyState()
+
+    def onReadyState(self, state):
+        if state != "complete":
+            QApplication.instance().processEvents()
+            return QTimer.singleShot(1000, self.updateReadyState)
+        self.webEngineView.page().runJavaScript(
+            "if (document.querySelector('#CXQnmb')) document.querySelector('#L2AGLb').click();"
+        )
+        self.webEngineView.page().toHtml(self.getHTML)
+
+    def updateReadyState(self):
+        self.webEngineView.page().runJavaScript(
+            "document.readyState", self.onReadyState
+        )
+
+    def getHTML(self, html):
+        self.content = html
+        if 'id="recaptcha"' in self.content:
+            self.mw.progress.finish()
+            if self.hide:
+                self.setWindowState(self.windowState() & ~Qt.WindowState.WindowMinimized)
+                self.setWindowOpacity(1)
+            self.is_captcha = True
+            return
+        self.results = getImages(self.content)
+        self.count += 1
+        if not self.results and self.count < 5:
+            return QTimer.singleShot(1500, self.updateReadyState)
+        self.finish = True
+        self.done(0)
+
+def getImages(html):
+    soup = BeautifulSoup(html, "html.parser")
+    rg_meta = soup.find_all("div", {"class": "rg_meta"})
+    metadata = [json.loads(e.text) for e in rg_meta]
+    results = [d["ou"] for d in metadata]
+
+    if not results:
+        results = re.findall(r'data-ou="([^"]+)"', html)
+
+    if not results:
+        texts = []
+
+        regex = re.escape("AF_initDataCallback({")
+        regex += r'[^<]*?data:[^<]*?' + r'(\[[^<]+\])'
+
+        for txt in re.findall(regex, html):
+            texts.append(txt)
+
+        regex = r'var m=(\{"[^"]+":\[.+?\]\});'
+
+        for txt in re.findall(regex, html):
+            texts.append(txt)
+
+        for txt in texts:
+            data = json.loads(txt)
+
+            try:
+                for d in data[31][0][12][2]:
+                    try:
+                        results.append(d[1][3][0])
+                    except Exception as e:
+                        pass
+            except Exception as e:
+                pass
+
+            try:
+                for d in data[56][1][0][0][1][0]:
+                    try:
+                        d = d[0][0]["444383007"]
+                        results.append(d[1][3][0])
+                    except:
+                        pass
+            except:
+                pass
+
+            try:
+                for key in data:
+                    try:
+                        for d in data[key]:
+                            try:
+                                if len(d) == 10 and len(d[3]) == 3:
+                                   results.append(d[3][0])
+                            except:
+                                pass
+                    except:
+                        pass
+            except:
+                pass
+
+    return results
 
 def updateNotes(browser, nids):
     try:
@@ -74,12 +233,12 @@ def updateNotes(browser, nids):
         mpv_path, env = _packagedCmd(["mpv"])
         mpv_executable = mpv_path[0]
         try:
-            with noBundledLibs():
+            with no_bundled_libs():
                 p = subprocess.Popen([mpv_executable, "--version"], startupinfo=si)
         except OSError:
             mpv_executable = None
 
-    note = mw.col.getNote(nids[0])
+    note = mw.col.get_note(nids[0])
     fields = note.keys()
 
     frm.srcField.addItems(fields)
@@ -160,6 +319,20 @@ def updateNotes(browser, nids):
     for i, title in enumerate(columns):
         frm.gridLayout.addWidget(QLabel(title), 0, i)
 
+    frm.cbShowWindow.setChecked(not config["Hide Window"])
+
+    frm.cbUseQtBrowser.setChecked(config["Use QtBrowser"])
+
+    if not config["Use QtBrowser"]:
+        frm.cbShowWindow.setEnabled(False)
+    else:
+        frm.cbShowWindow.setEnabled(True)
+
+    def state_changed():
+        frm.cbShowWindow.setEnabled(frm.cbUseQtBrowser.isChecked())
+
+    frm.cbUseQtBrowser.stateChanged.connect(state_changed)
+
     if not d.exec():
         return
 
@@ -194,6 +367,11 @@ def updateNotes(browser, nids):
 
     config["Source Field"] = sf
     config["Search Queries"] = sq
+    config["Hide Window"] = not frm.cbShowWindow.isChecked()
+    config["Use QtBrowser"] = frm.cbUseQtBrowser.isChecked()
+
+    hide_window = config["Hide Window"]
+
     mw.addonManager.writeConfig(__name__, config)
 
     def sleep(seconds):
@@ -205,10 +383,10 @@ def updateNotes(browser, nids):
     def updateField(nid, fld, images, overwrite):
         imgs = []
         for fname, data in images:
-            fname = mw.col.media.writeData(fname, data)
+            fname = mw.col.media.write_data(fname, data)
             filename = '<img src="%s">' % fname
             imgs.append(filename)
-        note = mw.col.getNote(nid)
+        note = mw.col.get_note(nid)
         delimiter = config.get("Delimiter", " ")
         if overwrite == "Append":
             if imgs and note[fld]:
@@ -216,7 +394,7 @@ def updateNotes(browser, nids):
             note[fld] += delimiter.join(imgs)
         else:
             note[fld] = delimiter.join(imgs)
-        note.flush()
+        mw.col.update_note(note)
 
     for q in sq:
         if q["Field"]:
@@ -229,15 +407,16 @@ def updateNotes(browser, nids):
     error_source_field_not_found = 0
     error_target_field_not_found = 0
     is_consent_error = False
-    is_search_error = True
-    mw.checkpoint("Add Google Images")
-    mw.progress.start(immediate=True)
-    browser.model.beginReset()
+    is_search_error = False
+    mw.progress.start(parent=browser)
     with concurrent.futures.ThreadPoolExecutor() as executor:
         jobs = []
         processed = set()
         for c, nid in enumerate(nids, 1):
-            note = mw.col.getNote(nid)
+            if is_search_error:
+                break
+
+            note = mw.col.get_note(nid)
 
             if sf not in note:
                 error_source_field_not_found += 1
@@ -245,6 +424,7 @@ def updateNotes(browser, nids):
 
             w = note[sf]
 
+            is_search_error = False
             is_target_field_found = False
             for q in sq:
                 df = q["Field"]
@@ -260,71 +440,13 @@ def updateNotes(browser, nids):
                 if note[df] and q["Overwrite"] == "Skip":
                     continue
 
-                def getImages(nid, fld, html, img_width, img_height, img_count, fld_overwrite):
-                    soup = BeautifulSoup(html, "html.parser")
-                    rg_meta = soup.find_all("div", {"class": "rg_meta"})
-                    metadata = [json.loads(e.text) for e in rg_meta]
-                    results = [d["ou"] for d in metadata]
-
-                    if not results:
-                        results = re.findall(r'data-ou="([^"]+)"', html)
-
-                    if not results:
-                        texts = []
-
-                        regex = re.escape("AF_initDataCallback({")
-                        regex += r'[^<]*?data:[^<]*?' + r'(\[[^<]+\])'
-
-                        for txt in re.findall(regex, html):
-                            texts.append(txt)
-
-                        regex = r'var m=(\{"[^"]+":\[.+?\]\});'
-
-                        for txt in re.findall(regex, html):
-                            texts.append(txt)
-
-                        for txt in texts:
-                            data = json.loads(txt)
-
-                            try:
-                                for d in data[31][0][12][2]:
-                                    try:
-                                        results.append(d[1][3][0])
-                                    except Exception as e:
-                                        pass
-                            except Exception as e:
-                                pass
-
-                            try:
-                                for d in data[56][1][0][0][1][0]:
-                                    try:
-                                        d = d[0][0]["444383007"]
-                                        results.append(d[1][3][0])
-                                    except:
-                                        pass
-                            except:
-                                pass
-
-                            try:
-                                for key in data:
-                                    try:
-                                        for d in data[key]:
-                                            try:
-                                                if len(d) == 10 and len(d[3]) == 3:
-                                                   results.append(d[3][0])
-                                            except:
-                                                pass
-                                    except:
-                                        pass
-                            except:
-                                pass
-
-
+                def downloadImages(nid, fld, html, img_width, img_height, img_count, fld_overwrite):
                     cnt = 0
                     images = []
                     for url in results:
                         try:
                             r = requests.get(url, headers=headers, timeout=15)
+                            QApplication.instance().processEvents()
                             r.raise_for_status()
                             data = r.content
                             if 'text/html' in r.headers.get('content-type', ''):
@@ -366,7 +488,7 @@ def updateNotes(browser, nids):
                                         img_ext = '.jpg'
                                     img_path = tmpfile(suffix=img_ext)
                                     cmd = [mpv_executable, tmp_path, "--no-audio", "-frames", "1", "-vf", "lavfi=[scale='min({},iw)':'min({},ih)':force_original_aspect_ratio=decrease:out_range=pc:flags=lanczos]".format(img_width, img_height), "-o", img_path]
-                                    with noBundledLibs():
+                                    with no_bundled_libs():
                                         p = subprocess.Popen(cmd, startupinfo=info)
                                     ret = p.wait()
                                     if ret == 0:
@@ -419,16 +541,33 @@ def updateNotes(browser, nids):
                             "oe": "utf8",
                             "ucbcb": "1",
                             "safe": "active",
-                            "tbs": "itp:photo,ic:color,iar:w",
                             "udm": "2"
                         }
-                        r = requests.get("https://www.google.com/search", params=payload, headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
-                        r.raise_for_status()
-                        is_search_error = False
-                        if '/consent.google.com/' in r.url:
-                            is_consent_error = True
+
+                        if config["Use QtBrowser"]:
+                            ex = GoogleHelper("https://www.google.com/search?" + urllib.parse.urlencode(payload), browser, hide_window, mw)
+                            ex.exec()
+                            data = ex.content
+                            results = ex.results
+                        else:
+                            payload["tbs"] = "itp:photo,ic:color,iar:w"
+                            rq_headers = headers
+                            rq_headers["User-Agent"] = rq_user_agent
+                            r = requests.get("https://www.google.com/search", params=payload, headers=rq_headers, cookies={"CONSENT":"YES+"}, timeout=15)
+                            r.raise_for_status()
+                            data = r.text
+                            results = getImages(data)
+                        QApplication.instance().processEvents()
+                        # if '/consent.google.com/' in r.url:
+                        #     is_consent_error = True
+                        #     break
+                        if not results and (len(nids) == 1 or (config["Use QtBrowser"] and ex.is_captcha)):
+                            is_search_error = True
+                            showText(data, title="[DEBUG] Google Images", copyBtn=True)
                             break
-                        future = executor.submit(getImages, nid, df, r.text, q["Width"], q["Height"], q["Count"], q["Overwrite"])
+                        if config["Use QtBrowser"] and ex.is_captcha:
+                            mw.progress.start()
+                        future = executor.submit(downloadImages, nid, df, results, q["Width"], q["Height"], q["Count"], q["Overwrite"])
                         jobs.append(future)
                         break
                     except requests.exceptions.HTTPError as e:
@@ -461,6 +600,7 @@ def updateNotes(browser, nids):
             for future in done:
                 nid, fld, images, overwrite = future.result()
                 updateField(nid, fld, images, overwrite)
+                QApplication.instance().processEvents()
                 processed.add(nid)
                 jobs.remove(future)
             else:
@@ -478,7 +618,6 @@ def updateNotes(browser, nids):
 
     QApplication.instance().processEvents()
     mw.progress.finish()
-    browser.model.endReset()
     mw.reset()
     if is_consent_error:
         showText('ERROR: "Before you continue to Google" pop-up', parent=browser)
