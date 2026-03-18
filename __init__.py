@@ -45,7 +45,7 @@ warnings.filterwarnings("ignore", "(Possibly )?corrupt EXIF data", UserWarning)
 
 
 headers = {
-  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+  "User-Agent": "Opera/9.80 (iPad; Opera Mini/5.0.17381/503; U; eu) Presto/2.6.35 Version/11.10)"
 }
 
 info = None
@@ -265,6 +265,9 @@ def updateNotes(browser, nids):
                     rg_meta = soup.find_all("div", {"class": "rg_meta"})
                     metadata = [json.loads(e.text) for e in rg_meta]
                     results = [d["ou"] for d in metadata]
+
+                    if not results:
+                        results = re.findall(r'data-ou="([^"]+)"', html)
 
                     if not results:
                         texts = []
