@@ -1,7 +1,6 @@
 {
 	"Source Field": "Front",
 	"Delimiter": " ",
-	"Hide Window": true,
 	"Search Queries": [
 		{
 			"Name": "Word",
