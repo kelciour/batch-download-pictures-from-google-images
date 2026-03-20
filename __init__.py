@@ -419,7 +419,8 @@ def updateNotes(browser, nids):
                             "oe": "utf8",
                             "ucbcb": "1",
                             "safe": "active",
-                            "tbs": "itp:photo,ic:color,iar:w"
+                            "tbs": "itp:photo,ic:color,iar:w",
+                            "udm": "2"
                         }
                         r = requests.get("https://www.google.com/search", params=payload, headers=headers, cookies={"CONSENT":"YES+"}, timeout=15)
                         r.raise_for_status()
