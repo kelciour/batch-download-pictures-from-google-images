@@ -1,9 +1,5 @@
 # -*- coding: utf-8 -*-
 
-"""
-Nickolay Nonard <kelciour@gmail.com>
-"""
-
 import json
 import requests
 import time
@@ -403,6 +399,12 @@ def updateNotes(browser, nids):
         tooltip("No Target Field selected.")
         return
 
+    if browser.editor.note:
+        editor_note_id = browser.editor.note.id
+        browser.editor.set_note(None, hide=False)
+    else:
+        editor_note_id = None
+
     error_msg = ""
     error_source_field_not_found = 0
     error_target_field_not_found = 0
@@ -616,8 +618,12 @@ def updateNotes(browser, nids):
             mw.progress.update(label)
             QApplication.instance().processEvents()
 
-    QApplication.instance().processEvents()
     mw.progress.finish()
+
+    if editor_note_id is not None:
+        note = mw.col.get_note(editor_note_id)
+        browser.editor.set_note(note, hide=False)
+
     mw.reset()
     if is_consent_error:
         showText('ERROR: "Before you continue to Google" pop-up', parent=browser)
