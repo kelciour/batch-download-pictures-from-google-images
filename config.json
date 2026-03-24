@@ -2,7 +2,7 @@
 	"Source Field": "Front",
 	"Delimiter": " ",
 	"Hide Window": true,
-	"Use QtBrowser": true,
+	"Use QtBrowser": false,
 	"Search Queries": [
 		{
 			"Name": "Word",
